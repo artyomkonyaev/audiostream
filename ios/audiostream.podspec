@@ -3,7 +3,7 @@
 # Run `pod lib lint audio_streamer.podspec' to validate before publishing.
 #
 Pod::Spec.new do |s|
-  s.name             = 'audio_streamer'
+  s.name             = 'audiostream'
   s.version          = '0.0.1'
   s.summary          = 'Streaming of PCM audio from Android and iOS'
   s.description      = <<-DESC
