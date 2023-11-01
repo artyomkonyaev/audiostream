@@ -6,13 +6,10 @@ const String METHOD_CHANNEL_NAME = 'audio_streamer.methodChannel';
 
 /// API for streaming raw audio data.
 class AudioStreamer {
-  static const EventChannel _noiseEventChannel =
-      EventChannel(EVENT_CHANNEL_NAME);
-  static const MethodChannel _sampleRateChannel =
-      MethodChannel(METHOD_CHANNEL_NAME);
-  static const MethodChannel _initPermissionRequestChannel =
-      MethodChannel(METHOD_CHANNEL_NAME);
-  static const int DEFAULT_SAMPLING_RATE = 16000;
+  static const EventChannel _noiseEventChannel = EventChannel(EVENT_CHANNEL_NAME);
+  static const MethodChannel _sampleRateChannel = MethodChannel(METHOD_CHANNEL_NAME);
+  static const MethodChannel _initPermissionRequestChannel = MethodChannel(METHOD_CHANNEL_NAME);
+  static const int DEFAULT_SAMPLING_RATE = 44100;
 
   int _sampleRate = DEFAULT_SAMPLING_RATE;
   Stream<List<double>>? _stream;
@@ -42,13 +39,10 @@ class AudioStreamer {
   /// The actual sampling rate may be different from the requested sampling rate.
   /// Only available after sampling has started.
   Future<int> get actualSampleRate async =>
-      await _sampleRateChannel.invokeMethod<int>('getSampleRate') ??
-      DEFAULT_SAMPLING_RATE;
+      await _sampleRateChannel.invokeMethod<int>('getSampleRate') ?? DEFAULT_SAMPLING_RATE;
 
   Future<int> get initPermissionRequest async =>
-      await _initPermissionRequestChannel
-          .invokeMethod<int>('initPermissionRequest') ??
-      0;
+      await _initPermissionRequestChannel.invokeMethod<int>('initPermissionRequest') ?? 0;
 
   /// The stream of audio samples.
   Stream<List<double>> get audioStream => _stream ??= _noiseEventChannel
