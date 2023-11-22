@@ -17,16 +17,25 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     // Set flutter communication channel for emitting updates
     let eventChannel = FlutterEventChannel.init(
       name: "audio_streamer.eventChannel", binaryMessenger: registrar.messenger())
-    // Set flutter communication channel for receiving method calls
-    let methodChannel = FlutterMethodChannel.init(
-      name: "audio_streamer.methodChannel", binaryMessenger: registrar.messenger())
-    methodChannel.setMethodCallHandler { (call: FlutterMethodCall, result: FlutterResult) -> Void in
+    
+    // Set flutter communication channel for receiving method calls related to sample rate
+    let sampleRateMethodChannel = FlutterMethodChannel.init(
+      name: "audio_streamer.sampleRateChannel", binaryMessenger: registrar.messenger())
+
+    // Set flutter communication channel for receiving method calls related to permission request
+    let permissionRequestMethodChannel = FlutterMethodChannel.init(
+      name: "audio_streamer.permissionRequestChannel", binaryMessenger: registrar.messenger())
+
+    sampleRateMethodChannel.setMethodCallHandler { (call: FlutterMethodCall, result: FlutterResult) -> Void in
       if call.method == "getSampleRate" {
         // Return sample rate that is currently being used, may differ from requested
         result(Int(AVAudioSession.sharedInstance().sampleRate))
       }
+    }
+
+    permissionRequestMethodChannel.setMethodCallHandler { (call: FlutterMethodCall, result: FlutterResult) -> Void in
       if call.method == "initPermissionRequest" {
-        // Return sample rate that is currently being used, may differ from requested
+        // Handle permission request
         var node = AVAudioEngine().inputNode
         result(0)
       }

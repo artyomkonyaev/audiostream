@@ -2,17 +2,19 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 const String EVENT_CHANNEL_NAME = 'audio_streamer.eventChannel';
-const String METHOD_CHANNEL_NAME = 'audio_streamer.methodChannel';
+const String SAMPLE_RATE_CHANNEL_NAME = 'audio_streamer.sampleRateChannel'; // New name for sample rate channel
+const String PERMISSION_REQUEST_CHANNEL_NAME =
+    'audio_streamer.permissionRequestChannel'; // New name for permission request channel
 
 /// API for streaming raw audio data.
 class AudioStreamer {
   static const EventChannel _noiseEventChannel = EventChannel(EVENT_CHANNEL_NAME);
-  static const MethodChannel _sampleRateChannel = MethodChannel(METHOD_CHANNEL_NAME);
-  static const MethodChannel _initPermissionRequestChannel = MethodChannel(METHOD_CHANNEL_NAME);
+  static const MethodChannel _sampleRateChannel = MethodChannel(SAMPLE_RATE_CHANNEL_NAME);
+  static const MethodChannel _initPermissionRequestChannel = MethodChannel(PERMISSION_REQUEST_CHANNEL_NAME);
   static const int DEFAULT_SAMPLING_RATE = 44100;
 
   int _sampleRate = DEFAULT_SAMPLING_RATE;
-  Stream<List<double>>? _stream;
+  Stream<List<int>>? _stream;
   static AudioStreamer? _instance;
 
   /// Constructs a singleton instance of [AudioStreamer].
@@ -45,10 +47,10 @@ class AudioStreamer {
       await _initPermissionRequestChannel.invokeMethod<int>('initPermissionRequest') ?? 0;
 
   /// The stream of audio samples.
-  Stream<List<double>> get audioStream => _stream ??= _noiseEventChannel
+  Stream<List<int>> get audioStream => _stream ??= _noiseEventChannel
       .receiveBroadcastStream({"sampleRate": sampleRate})
       .map((buffer) => buffer as List<dynamic>?)
-      .map((list) => (list != null && list.isNotEmpty && list[0] is double)
-          ? list.cast<double>()
-          : list!.map((e) => e is double ? e : double.parse('$e')).toList());
+      .map((list) => (list != null && list.isNotEmpty && list[0] is int)
+          ? list.cast<int>() // Casting to List<int>
+          : list!.map((e) => e is int ? e : int.parse('$e')).toList());
 }
