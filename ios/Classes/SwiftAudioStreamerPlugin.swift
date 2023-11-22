@@ -6,7 +6,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
 
   private var eventSink: FlutterEventSink?
   var engine = AVAudioEngine()
-  var audioData: [Float] = []
+  var audioData: [Int16] = []
   var recording = false
   var preferredSampleRate: Int? = nil
 
@@ -79,7 +79,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
   }
 
   // Handle stream emitting (Swift => Flutter)
-  private func emitValues(values: [Float]) {
+  private func emitValues(values: [Int16]) {
 
     // If no eventSink to emit events to, do nothing (wait)
     if eventSink == nil {
@@ -128,11 +128,17 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
       let input = engine.inputNode
       let bus = 0
 
-      input.installTap(onBus: bus, bufferSize: 4410, format: input.inputFormat(forBus: bus)) {
+      // Setting the format for 16-bit little endian signed PCM
+      let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(sampleRate ?? 44100), channels: 1, interleaved: false)!
+
+      input.installTap(onBus: bus, bufferSize: 4410, format: desiredFormat) {
         buffer, _ -> Void in
-        let samples = buffer.floatChannelData?[0]
-        // audio callback, samples in samples[0]...samples[buffer.frameLength-1]
-        let arr = Array(UnsafeBufferPointer(start: samples, count: Int(buffer.frameLength)))
+        let frameLength = Int(buffer.frameLength)
+
+        // Convert buffer to 16-bit little endian signed PCM
+        let pointer = buffer.int16ChannelData![0]
+        let bufferPointer = UnsafeBufferPointer(start: pointer, count: frameLength)
+        let arr = Array(bufferPointer)
         self.emitValues(values: arr)
       }
 
