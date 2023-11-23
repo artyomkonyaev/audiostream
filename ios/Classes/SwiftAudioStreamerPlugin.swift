@@ -1,6 +1,8 @@
 import AVFoundation
 import Flutter
 import UIKit
+import os.log
+
 
 public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
@@ -131,7 +133,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
         try AVAudioSession.sharedInstance().setCategory(
             AVAudioSession.Category.playAndRecord, options: .mixWithOthers)
         try AVAudioSession.sharedInstance().setActive(true)
-        
+
         if let sampleRateNotNull = sampleRate {
             NSLog("Setting preferred sample rate to \(sampleRateNotNull).")
             try AVAudioSession.sharedInstance().setPreferredSampleRate(Double(sampleRateNotNull))
@@ -145,17 +147,23 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
         }
         let bus = 0
 
-        guard let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(sampleRate ?? 44100), channels: 1, interleaved: false) else {
+        let inputFormat = input.outputFormat(forBus: bus)
+        os_log("Input node is providing output format with sample rate: %f, channel count: %lu", log: OSLog.default, type: .info, inputFormat.sampleRate, inputFormat.channelCount)
+        NSLog("Input node is providing output format with sample rate: %f, channel count: %lu",
+          inputFormat.sampleRate,
+          inputFormat.channelCount)
+
+        guard let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(sampleRate ?? Int(inputFormat.sampleRate)), channels: 1, interleaved: false) else {
             NSLog("Failed to create desired audio format, cannot install tap.")
             return
         }
 
-        NSLog("Installing tap on input node with bufferSize: 4410 and sample rate: \(sampleRate ?? 44100).")
+        NSLog("Installing tap on input node with bufferSize: 4410 and sample rate: \(desiredFormat.sampleRate).")
+        
         input.installTap(onBus: bus, bufferSize: 4410, format: desiredFormat) { buffer, _ in
             let frameLength = Int(buffer.frameLength)
             NSLog("Buffer received with frameLength: \(frameLength)")
             
-            // Error handling for channel data
             guard let pointer = buffer.int16ChannelData?[0] else {
                 NSLog("int16ChannelData pointer is nil.")
                 return
@@ -172,8 +180,8 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
         NSLog("Caught error: \(error.localizedDescription)")
         eventSink?(
             FlutterError(
-                code: "AudioEngineError", 
-                message: "Unable to start audio engine or install tap", 
+                code: "AudioEngineError",
+                message: "Unable to start audio engine or install tap",
                 details: error.localizedDescription
             ))
     }
