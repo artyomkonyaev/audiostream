@@ -130,23 +130,22 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
 
     do {
         NSLog("Setting audio session category and activating session.")
-        try AVAudioSession.sharedInstance().setCategory(
-            AVAudioSession.Category.playAndRecord, options: .mixWithOthers)
-        try AVAudioSession.sharedInstance().setActive(true)
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        try session.setActive(true)
 
-        let inputNode = engine.inputNode
+        guard let inputNode = engine.inputNode else {
+            NSLog("Input node is not available.")
+            throw NSError(domain: "AudioEngineError", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Input node is not available."])
+        }
+
         let inputNodeFormat = inputNode.inputFormat(forBus: 0)
         NSLog("Default input node format: \(inputNodeFormat)")
 
-        let desiredSampleRate = Double(sampleRate ?? 44100)
-        if desiredSampleRate != inputNodeFormat.sampleRate {
-            NSLog("Desired sample rate (\(desiredSampleRate)) is different from input node's default sample rate (\(inputNodeFormat.sampleRate)). Using default sample rate.")
-        }
-
-        let formatToUse = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: inputNodeFormat.sampleRate, channels: inputNodeFormat.channelCount, interleaved: false) ?? inputNodeFormat
-
-        NSLog("Installing tap on input node with format: \(formatToUse)")
-        inputNode.installTap(onBus: 0, bufferSize: 4410, format: formatToUse) { buffer, _ in
+        let bufferSize: AVAudioFrameCount = 4410
+        NSLog("Installing tap on input node with format: \(inputNodeFormat)")
+        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputNodeFormat) { [weak self] buffer, _ in
+            guard let self = self else { return }
             let frameLength = Int(buffer.frameLength)
             NSLog("Buffer received with frameLength: \(frameLength)")
 
