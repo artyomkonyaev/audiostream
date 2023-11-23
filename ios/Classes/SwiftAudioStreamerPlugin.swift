@@ -125,7 +125,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     return nil
   }
 
-  func startRecording(sampleRate: Int?) {
+  public func startRecording(sampleRate: Int?) {  
     engine = AVAudioEngine()
 
     do {
@@ -133,10 +133,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
         try session.setActive(true)
 
-        guard let inputNode = engine.inputNode else {
-            NSLog("Input node is not available.")
-            return
-        }
+        let inputNode = engine.inputNode // Directly use inputNode
 
         let inputNodeFormat = inputNode.inputFormat(forBus: 0)
         NSLog("Default input node format: \(inputNodeFormat)")
@@ -158,7 +155,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     }
   }
 
-  func processAudioBuffer(_ buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
+  public func processAudioBuffer(_ buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
     if format.commonFormat == .pcmFormatInt16 {
         // Process PCM data directly
         let frameLength = Int(buffer.frameLength)
@@ -175,7 +172,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     }
 }
 
-func convertToPCM(buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
+public func convertToPCM(buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
     let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: format.sampleRate, channels: format.channelCount, interleaved: format.isInterleaved)
 
     guard let converter = AVAudioConverter(from: format, to: pcmFormat!) else {
