@@ -129,37 +129,23 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     engine = AVAudioEngine()
 
     do {
-        NSLog("Setting audio session category and activating session.")
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
         try session.setActive(true)
 
         guard let inputNode = engine.inputNode else {
             NSLog("Input node is not available.")
-            throw NSError(domain: "AudioEngineError", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Input node is not available."])
+            return
         }
 
         let inputNodeFormat = inputNode.inputFormat(forBus: 0)
         NSLog("Default input node format: \(inputNodeFormat)")
 
-        let bufferSize: AVAudioFrameCount = 4410
-        NSLog("Installing tap on input node with format: \(inputNodeFormat)")
-        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputNodeFormat) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputNodeFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
-            let frameLength = Int(buffer.frameLength)
-            NSLog("Buffer received with frameLength: \(frameLength)")
-
-            guard let pointer = buffer.int16ChannelData?[0] else {
-                NSLog("int16ChannelData pointer is nil.")
-                return
-            }
-
-            let bufferPointer = UnsafeBufferPointer(start: pointer, count: frameLength)
-            let arr = Array(bufferPointer)
-            self.emitValues(values: arr)
+            self.processAudioBuffer(buffer, format: inputNodeFormat)
         }
 
-        NSLog("Starting audio engine.")
         try engine.start()
     } catch {
         NSLog("Caught error: \(error.localizedDescription)")
@@ -169,6 +155,54 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
                 message: "Unable to start audio engine or install tap", 
                 details: error.localizedDescription
             ))
+    }
+  }
+
+  func processAudioBuffer(_ buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
+    if format.commonFormat == .pcmFormatInt16 {
+        // Process PCM data directly
+        let frameLength = Int(buffer.frameLength)
+        guard let pointer = buffer.int16ChannelData?[0] else {
+            NSLog("int16ChannelData pointer is nil.")
+            return
+        }
+        let bufferPointer = UnsafeBufferPointer(start: pointer, count: frameLength)
+        let arr = Array(bufferPointer)
+        emitValues(values: arr)
+    } else {
+        // Convert to PCM and then process
+        convertToPCM(buffer: buffer, format: format)
+    }
+}
+
+func convertToPCM(buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
+    let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: format.sampleRate, channels: format.channelCount, interleaved: format.isInterleaved)
+
+    guard let converter = AVAudioConverter(from: format, to: pcmFormat!) else {
+        NSLog("Failed to create AVAudioConverter.")
+        return
+    }
+
+    let pcmBuffer = AVAudioPCMBuffer(pcmFormat: pcmFormat!, frameCapacity: AVAudioFrameCount(buffer.frameLength))
+
+    var error: NSError?
+    let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+        outStatus.pointee = .haveData
+        return buffer
+    }
+
+    converter.convert(to: pcmBuffer!, error: &error, withInputFrom: inputBlock)
+
+    if let error = error {
+        NSLog("Error during format conversion: \(error.localizedDescription)")
+        return
+    }
+
+    if let pcmData = pcmBuffer?.int16ChannelData?[0] {
+        let frameLength = Int(pcmBuffer!.frameLength)
+        let bufferPointer = UnsafeBufferPointer(start: pcmData, count: frameLength)
+        let arr = Array(bufferPointer)
+        emitValues(values: arr)
     }
   }
 
