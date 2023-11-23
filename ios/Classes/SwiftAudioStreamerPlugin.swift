@@ -127,38 +127,42 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     engine = AVAudioEngine()
 
     do {
-      try AVAudioSession.sharedInstance().setCategory(
-        AVAudioSession.Category.playAndRecord, options: .mixWithOthers)
-      try AVAudioSession.sharedInstance().setActive(true)
+        NSLog("Setting audio session category and activating session.")
+        try AVAudioSession.sharedInstance().setCategory(
+            AVAudioSession.Category.playAndRecord, options: .mixWithOthers)
+        try AVAudioSession.sharedInstance().setActive(true)
+        
+        if let sampleRateNotNull = sampleRate {
+            NSLog("Setting preferred sample rate to \(sampleRateNotNull).")
+            try AVAudioSession.sharedInstance().setPreferredSampleRate(Double(sampleRateNotNull))
+        }
 
-      if let sampleRateNotNull = sampleRate {
-        // Try to set sample rate
-        try AVAudioSession.sharedInstance().setPreferredSampleRate(Double(sampleRateNotNull))
-      }
+        guard let input = engine.inputNode else {
+            NSLog("Input node is not available.")
+            return
+        }
+        let bus = 0
 
-      let input = engine.inputNode
-      let bus = 0
+        guard let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(sampleRate ?? 44100), channels: 1, interleaved: false) else {
+            NSLog("Failed to create desired audio format.")
+            return
+        }
 
-      // Setting the format for 16-bit little endian signed PCM
-      let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(sampleRate ?? 44100), channels: 1, interleaved: false)!
+        NSLog("Installing tap on input node.")
+        input.installTap(onBus: bus, bufferSize: 4410, format: desiredFormat) { buffer, _ in
+            let frameLength = Int(buffer.frameLength)
+            // ... rest of the code ...
+        }
 
-      input.installTap(onBus: bus, bufferSize: 4410, format: desiredFormat) {
-        buffer, _ -> Void in
-        let frameLength = Int(buffer.frameLength)
-
-        // Convert buffer to 16-bit little endian signed PCM
-        let pointer = buffer.int16ChannelData![0]
-        let bufferPointer = UnsafeBufferPointer(start: pointer, count: frameLength)
-        let arr = Array(bufferPointer)
-        self.emitValues(values: arr)
-      }
-
-      try engine.start()
+        NSLog("Starting audio engine.")
+        try engine.start()
     } catch {
-      eventSink!(
-        FlutterError(
-          code: "100", message: "Unable to start audio session", details: error.localizedDescription
-        ))
+        NSLog("Caught error: \(error.localizedDescription)")
+        eventSink!(
+            FlutterError(
+                code: "100", message: "Unable to start audio session", details: error.localizedDescription
+            ))
     }
   }
+
 }
