@@ -89,13 +89,15 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
 
   // Handle stream emitting (Swift => Flutter)
   private func emitValues(values: [Int16]) {
-
     // If no eventSink to emit events to, do nothing (wait)
     if eventSink == nil {
-      return
+        return
     }
-    // Emit values count event to Flutter
-    eventSink!(values)
+    
+    DispatchQueue.main.async {
+        // Emit values count event to Flutter
+        self.eventSink!(values)
+    }
   }
 
   // Event Channel: On Stream Listen
