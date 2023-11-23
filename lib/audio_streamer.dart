@@ -14,7 +14,7 @@ class AudioStreamer {
   static const int DEFAULT_SAMPLING_RATE = 44100;
 
   int _sampleRate = DEFAULT_SAMPLING_RATE;
-  Stream<List<int>>? _stream;
+  Stream<List<double>>? _stream;
   static AudioStreamer? _instance;
 
   /// Constructs a singleton instance of [AudioStreamer].
@@ -47,10 +47,10 @@ class AudioStreamer {
       await _initPermissionRequestChannel.invokeMethod<int>('initPermissionRequest') ?? 0;
 
   /// The stream of audio samples.
-  Stream<List<int>> get audioStream => _stream ??= _noiseEventChannel
+  Stream<List<double>> get audioStream => _stream ??= _noiseEventChannel
       .receiveBroadcastStream({"sampleRate": sampleRate})
       .map((buffer) => buffer as List<dynamic>?)
-      .map((list) => (list != null && list.isNotEmpty && list[0] is int)
-          ? list.cast<int>() // Casting to List<int>
-          : list!.map((e) => e is int ? e : int.parse('$e')).toList());
+      .map((list) => (list != null && list.isNotEmpty && list[0] is double)
+          ? list.cast<double>()
+          : list!.map((e) => e is double ? e : double.parse('$e')).toList());
 }

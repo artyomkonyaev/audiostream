@@ -1,14 +1,12 @@
 import AVFoundation
 import Flutter
 import UIKit
-import os.log
-
 
 public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
   private var eventSink: FlutterEventSink?
   var engine = AVAudioEngine()
-  var audioData: [Int16] = []
+  var audioData: [Float] = []
   var recording = false
   var preferredSampleRate: Int? = nil
 
@@ -90,16 +88,14 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
   }
 
   // Handle stream emitting (Swift => Flutter)
-  private func emitValues(values: [Int16]) {
+  private func emitValues(values: [Float]) {
+
     // If no eventSink to emit events to, do nothing (wait)
     if eventSink == nil {
-        return
+      return
     }
-    
-    DispatchQueue.main.async {
-        // Emit values count event to Flutter
-        self.eventSink!(values)
-    }
+    // Emit values count event to Flutter
+    eventSink!(values)
   }
 
   // Event Channel: On Stream Listen
@@ -125,82 +121,36 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     return nil
   }
 
-  public func startRecording(sampleRate: Int?) {  
+  func startRecording(sampleRate: Int?) {
     engine = AVAudioEngine()
 
     do {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
-        try session.setActive(true)
+      try AVAudioSession.sharedInstance().setCategory(
+        AVAudioSession.Category.playAndRecord, options: .mixWithOthers)
+      try AVAudioSession.sharedInstance().setActive(true)
 
-        let inputNode = engine.inputNode // Directly use inputNode
+      if let sampleRateNotNull = sampleRate {
+        // Try to set sample rate
+        try AVAudioSession.sharedInstance().setPreferredSampleRate(Double(sampleRateNotNull))
+      }
 
-        let inputNodeFormat = inputNode.inputFormat(forBus: 0)
-        NSLog("Default input node format: \(inputNodeFormat)")
+      let input = engine.inputNode
+      let bus = 0
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputNodeFormat) { [weak self] buffer, _ in
-            guard let self = self else { return }
-            self.processAudioBuffer(buffer, format: inputNodeFormat)
-        }
+      input.installTap(onBus: bus, bufferSize: 4410, format: input.inputFormat(forBus: bus)) {
+        buffer, _ -> Void in
+        let samples = buffer.floatChannelData?[0]
+        // audio callback, samples in samples[0]...samples[buffer.frameLength-1]
+        let arr = Array(UnsafeBufferPointer(start: samples, count: Int(buffer.frameLength)))
+        self.emitValues(values: arr)
+      }
 
-        try engine.start()
+      try engine.start()
     } catch {
-        NSLog("Caught error: \(error.localizedDescription)")
-        eventSink?(
-            FlutterError(
-                code: "AudioEngineError", 
-                message: "Unable to start audio engine or install tap", 
-                details: error.localizedDescription
-            ))
+      eventSink!(
+        FlutterError(
+          code: "100", message: "Unable to start audio session", details: error.localizedDescription
+        ))
     }
   }
-
-  public func processAudioBuffer(_ buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
-    if format.commonFormat == .pcmFormatInt16 {
-        // Process PCM data directly
-        let frameLength = Int(buffer.frameLength)
-        guard let pointer = buffer.int16ChannelData?[0] else {
-            NSLog("int16ChannelData pointer is nil.")
-            return
-        }
-        let bufferPointer = UnsafeBufferPointer(start: pointer, count: frameLength)
-        let arr = Array(bufferPointer)
-        emitValues(values: arr)
-    } else {
-        // Convert to PCM and then process
-        convertToPCM(buffer: buffer, format: format)
-    }
-}
-
-public func convertToPCM(buffer: AVAudioPCMBuffer, format: AVAudioFormat) {
-    let pcmFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: format.sampleRate, channels: format.channelCount, interleaved: format.isInterleaved)
-
-    guard let converter = AVAudioConverter(from: format, to: pcmFormat!) else {
-        NSLog("Failed to create AVAudioConverter.")
-        return
-    }
-
-    let pcmBuffer = AVAudioPCMBuffer(pcmFormat: pcmFormat!, frameCapacity: AVAudioFrameCount(buffer.frameLength))
-
-    var error: NSError?
-    let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
-        outStatus.pointee = .haveData
-        return buffer
-    }
-
-    converter.convert(to: pcmBuffer!, error: &error, withInputFrom: inputBlock)
-
-    if let error = error {
-        NSLog("Error during format conversion: \(error.localizedDescription)")
-        return
-    }
-
-    if let pcmData = pcmBuffer?.int16ChannelData?[0] {
-        let frameLength = Int(pcmBuffer!.frameLength)
-        let bufferPointer = UnsafeBufferPointer(start: pcmData, count: frameLength)
-        let arr = Array(bufferPointer)
-        emitValues(values: arr)
-    }
-  }
-
 }
