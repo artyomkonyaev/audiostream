@@ -134,41 +134,27 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
             AVAudioSession.Category.playAndRecord, options: .mixWithOthers)
         try AVAudioSession.sharedInstance().setActive(true)
 
-        if let sampleRateNotNull = sampleRate {
-            NSLog("Setting preferred sample rate to \(sampleRateNotNull).")
-            try AVAudioSession.sharedInstance().setPreferredSampleRate(Double(sampleRateNotNull))
-        } else {
-            NSLog("Using default sample rate because `sampleRate` was nil.")
+        let inputNode = engine.inputNode
+        let inputNodeFormat = inputNode.inputFormat(forBus: 0)
+        NSLog("Default input node format: \(inputNodeFormat)")
+
+        let desiredSampleRate = Double(sampleRate ?? 44100)
+        if desiredSampleRate != inputNodeFormat.sampleRate {
+            NSLog("Desired sample rate (\(desiredSampleRate)) is different from input node's default sample rate (\(inputNodeFormat.sampleRate)). Using default sample rate.")
         }
 
-        guard let input = engine.inputNode else {
-            NSLog("Input node is not available, cannot install tap.")
-            return
-        }
-        let bus = 0
+        let formatToUse = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: inputNodeFormat.sampleRate, channels: inputNodeFormat.channelCount, interleaved: false) ?? inputNodeFormat
 
-        let inputFormat = input.outputFormat(forBus: bus)
-        os_log("Input node is providing output format with sample rate: %f, channel count: %lu", log: OSLog.default, type: .info, inputFormat.sampleRate, inputFormat.channelCount)
-        NSLog("Input node is providing output format with sample rate: %f, channel count: %lu",
-          inputFormat.sampleRate,
-          inputFormat.channelCount)
-
-        guard let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(sampleRate ?? Int(inputFormat.sampleRate)), channels: 1, interleaved: false) else {
-            NSLog("Failed to create desired audio format, cannot install tap.")
-            return
-        }
-
-        NSLog("Installing tap on input node with bufferSize: 4410 and sample rate: \(desiredFormat.sampleRate).")
-        
-        input.installTap(onBus: bus, bufferSize: 4410, format: desiredFormat) { buffer, _ in
+        NSLog("Installing tap on input node with format: \(formatToUse)")
+        inputNode.installTap(onBus: 0, bufferSize: 4410, format: formatToUse) { buffer, _ in
             let frameLength = Int(buffer.frameLength)
             NSLog("Buffer received with frameLength: \(frameLength)")
-            
+
             guard let pointer = buffer.int16ChannelData?[0] else {
                 NSLog("int16ChannelData pointer is nil.")
                 return
             }
-            
+
             let bufferPointer = UnsafeBufferPointer(start: pointer, count: frameLength)
             let arr = Array(bufferPointer)
             self.emitValues(values: arr)
@@ -180,8 +166,8 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
         NSLog("Caught error: \(error.localizedDescription)")
         eventSink?(
             FlutterError(
-                code: "AudioEngineError",
-                message: "Unable to start audio engine or install tap",
+                code: "AudioEngineError", 
+                message: "Unable to start audio engine or install tap", 
                 details: error.localizedDescription
             ))
     }
