@@ -135,32 +135,46 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
         if let sampleRateNotNull = sampleRate {
             NSLog("Setting preferred sample rate to \(sampleRateNotNull).")
             try AVAudioSession.sharedInstance().setPreferredSampleRate(Double(sampleRateNotNull))
+        } else {
+            NSLog("Using default sample rate because `sampleRate` was nil.")
         }
 
         guard let input = engine.inputNode else {
-            NSLog("Input node is not available.")
+            NSLog("Input node is not available, cannot install tap.")
             return
         }
         let bus = 0
 
         guard let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(sampleRate ?? 44100), channels: 1, interleaved: false) else {
-            NSLog("Failed to create desired audio format.")
+            NSLog("Failed to create desired audio format, cannot install tap.")
             return
         }
 
-        NSLog("Installing tap on input node.")
+        NSLog("Installing tap on input node with bufferSize: 4410 and sample rate: \(sampleRate ?? 44100).")
         input.installTap(onBus: bus, bufferSize: 4410, format: desiredFormat) { buffer, _ in
             let frameLength = Int(buffer.frameLength)
-            // ... rest of the code ...
+            NSLog("Buffer received with frameLength: \(frameLength)")
+            
+            // Error handling for channel data
+            guard let pointer = buffer.int16ChannelData?[0] else {
+                NSLog("int16ChannelData pointer is nil.")
+                return
+            }
+            
+            let bufferPointer = UnsafeBufferPointer(start: pointer, count: frameLength)
+            let arr = Array(bufferPointer)
+            self.emitValues(values: arr)
         }
 
         NSLog("Starting audio engine.")
         try engine.start()
     } catch {
         NSLog("Caught error: \(error.localizedDescription)")
-        eventSink!(
+        eventSink?(
             FlutterError(
-                code: "100", message: "Unable to start audio session", details: error.localizedDescription
+                code: "AudioEngineError", 
+                message: "Unable to start audio engine or install tap", 
+                details: error.localizedDescription
             ))
     }
   }
