@@ -126,7 +126,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
 
     do {
       try AVAudioSession.sharedInstance().setCategory(
-        AVAudioSession.Category.playAndRecord)
+        AVAudioSession.Category.playback)
       try AVAudioSession.sharedInstance().setActive(true)
 
       if let sampleRateNotNull = sampleRate {
