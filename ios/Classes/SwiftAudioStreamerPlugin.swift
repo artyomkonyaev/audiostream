@@ -123,7 +123,7 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
     // Switch the audio session category to playback to ensure the audio plays through the main speaker
     try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback)
     // Deactivate the audio session
-    try AVAudioSession.sharedInstance().setActive(false)
+    // try AVAudioSession.sharedInstance().setActive(false)
     } catch {
     }
 
