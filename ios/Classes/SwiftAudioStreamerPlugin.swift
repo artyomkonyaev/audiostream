@@ -117,6 +117,10 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
   public func onCancel(withArguments arguments: Any?) -> FlutterError? {
     NotificationCenter.default.removeObserver(self)
     engine.inputNode.removeTap(onBus: 0)
+    do {
+      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.defaultToSpeaker])
+    } catch {
+    }
     engine.stop()
     eventSink = nil
     return nil
