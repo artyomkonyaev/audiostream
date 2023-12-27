@@ -116,8 +116,9 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
   // Event Channel: On Stream Cancelled
   public func onCancel(withArguments arguments: Any?) -> FlutterError? {
     NotificationCenter.default.removeObserver(self)
-    eventSink = nil
+    engine.inputNode.removeTap(onBus: 0)
     engine.stop()
+    eventSink = nil
     return nil
   }
 
