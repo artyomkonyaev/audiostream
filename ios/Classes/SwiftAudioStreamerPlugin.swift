@@ -116,18 +116,8 @@ public class SwiftAudioStreamerPlugin: NSObject, FlutterPlugin, FlutterStreamHan
   // Event Channel: On Stream Cancelled
   public func onCancel(withArguments arguments: Any?) -> FlutterError? {
     NotificationCenter.default.removeObserver(self)
-    engine.inputNode.removeTap(onBus: 0)
-    engine.stop()
-
-    do {
-    // Switch the audio session category to playback to ensure the audio plays through the main speaker
-    try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback)
-    // Deactivate the audio session
-    // try AVAudioSession.sharedInstance().setActive(false)
-    } catch {
-    }
-
     eventSink = nil
+    engine.stop()
     return nil
   }
 
